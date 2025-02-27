@@ -1,0 +1,67 @@
+import sys
+
+import pygame
+
+#important to start
+pygame.init() 
+#screen size
+screen = pygame.display.set_mode((480,270))
+#changing the name of the program displayed at top of window
+pygame.display.set_caption("Runner game")
+ # to set the frame rate, we need to set a ceiing(maximum) and floor(minimum) 
+# so we create a clock object
+clock = pygame.time.Clock()
+# there are 2 types of surfaces in pygame, display(the window) and the regular surface
+#creating the regular surface, with plain colour, images, and text.
+# we can also create a surface with a shape, by using pygame.Surface((width, height))
+#test_surface = pygame.Surface( (100,200))
+#test_surface.fill(pygame.Color("#36015c"))#adding colour to the surface
+#also, we use a coordinate system for the position of the surface
+#with the top left corner being (0,0) and the usual (x,y) 
+test_font = pygame.font.Font("assets/Fonts/Starborn.ttf", 50)
+#creating an image surface
+# .convert() is used to convert the image to a different format
+#that is easier for pygame to work with
+#_alpha accounts for the alpha values in the image
+background_surface = pygame.image.load("assets/Game Objects/Background.png").convert_alpha()
+floor_surface = pygame.image.load("assets/Game Objects/Foreground.png").convert_alpha()
+
+text_surface = test_font.render("My game", True, 'purple')
+
+
+ob= pygame.image.load("assets/Game Objects/Obstacle_1.png")
+log_surface = pygame.transform.scale(log_surface, (60,70))
+log_position = 700
+log_speed = -4
+
+#rectangles
+# they help to place the surfaces in a precise position
+# they are used to detect collisions
+# we can also use them to move the surfaces
+# we can also use them to detect if a surface is in a certain position
+
+
+
+
+
+#pygame would run and then stop so, in order to keep the program running,  
+#we need to set a while loop 
+while True:
+  #now, we account for all possible user inputs
+  for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+      pygame.quit()
+      sys.exit()
+  #now we can display the surface
+  screen.blit(background_surface, (0,-30))
+  screen.blit(floor_surface, (0,200))
+
+  screen.blit(text_surface, (300,50))
+  log_position += log_speed
+  if log_position == 0:
+      log_position = 700
+
+  screen.blit(log_surface, (log_position,400))
+
+  pygame.display.update()
+  clock.tick(60) #while loop is running, 60fps

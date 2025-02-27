@@ -1,0 +1,325 @@
+this game is supposed to have the tile maps and objects scaled up. the objects do not display now for whatever reason. I need you to go through the entire thing and point out whatever might be causing this to not work properly.
+if you run the file, there are no errors pointed out so that doesn't help. there are multiple files that make up this game. over to you.
+
+<game.py>
+import pygame, sys, os
+from settings import *
+from player import Player
+from sprites import *
+from random import randint
+from pytmx.util_pygame import load_pygame
+from groups import AllSprites
+
+class Game:    #using a class because there are different games and the other games could easily inherit the attributes of this parent class
+    def __init__(self):
+        pygame.init()  # initialise pygame
+        self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.RESIZABLE)  # create the screen
+        pygame.display.set_caption('Serene acres')
+        self.clock = pygame.time.Clock() # creating a clock
+        self.running = True
+
+        #groups:
+        self.all_sprites = AllSprites()
+        self.collision_sprites = pygame.sprite.Group()
+
+        self.setup()
+
+        #sprites
+
+
+    def setup (self):
+        map = load_pygame(os.path.join('..', 'graphics', 'map.tmx'))
+
+
+
+        # for i in range(6):
+        #     x,y = randint(0, screen_width), randint(0, screen_height)
+        #     w,h = randint(60,100), randint(60, 100)
+        #
+        #     CollisionSprite((x,y), (w,h), self.all_sprites, self.collision_sprites)
+
+    def setup(self):
+        map = load_pygame(os.path.abspath(os.path.join('..', 'graphics', 'map stuff', 'Map.tmx')))
+
+
+        #tile layers
+        for x,y, image in map.get_layer_by_name("Lake").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("Ground").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("Ground2").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("HighGround").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("Decor").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("DecorTop").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+        for x,y, image in map.get_layer_by_name("HighDecor").tiles():
+            Sprite((x * tile_size,y * tile_size), image, self.all_sprites)
+
+        #object layers
+        for obj  in map.get_layer_by_name("natural collisions"):
+            CollisionSprite((obj.x, obj.y), obj.image, self.all_sprites, self.collision_sprites)
+        for obj in map.get_layer_by_name("interaction objects"):
+            CollisionSprite((obj.x, obj.y), obj.image, self.all_sprites, self.collision_sprites)
+        for obj  in map.get_layer_by_name("Hitboxes"):
+            CollisionSprite(( obj.x, obj.y), pygame.Surface((obj.width, obj.height)),  self.collision_sprites)
+        for obj  in map.get_layer_by_name("Entities"):
+            if obj.name == "Player":
+                self.player = Player((obj.x, obj.y), self.all_sprites, self.collision_sprites)
+
+
+
+        #btw don't forget to block out areas on map
+        #see link for help
+        # https://youtu.be/8OMghdHP-zs?si=4PXQjn6IG8gbTxTv&t=16830
+
+
+
+
+    def run(self):  # game running method
+
+        while self.running:
+            dt = self.clock.tick() / 1000  # getting the delta time and dividing by 1000 to get it in seconds rather than milliseconds
+
+            #event loop
+            for event in pygame.event.get():  #game updater, will check for different events in the game
+                if event.type == pygame.QUIT: #checking for a game exit
+                    pygame.quit()
+                    sys.exit()
+
+            #update
+            self.screen.fill('black')  # so we don't accidentally see the previous frame
+            self.all_sprites.update(dt)
+            #draw
+            self.all_sprites.draw(self.player.rect.center)
+            pygame.display.update()
+
+# Creating an instance of the game and running it
+def Main_game():
+
+    if __name__ == "__main__": #makes sure game only runs from main
+        game = Game()
+        game.run()
+
+
+Main_game()
+
+</game.py>
+
+<groups.py>
+import pygame
+from settings import *
+
+
+class AllSprites(pygame.sprite.Group):
+    def __init__(self, scale_factor=2):
+        super().__init__()
+        self.display_surface = pygame.display.get_surface()
+        self.offset = pygame.Vector2(0, 0)
+        self.scale_factor = scale_factor
+
+    def draw(self, target_pos):
+        # Apply offset before scaling to keep movement accurate
+        self.offset.x = (-target_pos[0]) + (self.display_surface.get_width() // (2 * self.scale_factor))
+        self.offset.y = (-target_pos[1]) + (self.display_surface.get_height() // (2 * self.scale_factor))
+
+        #camera stuff, Basic camera and y-sort
+        ground_sprites = [sprite for sprite in self if hasattr(sprite, 'ground')]
+        object_sprites = [sprite for sprite in self if not hasattr(sprite, 'ground')]
+
+        for layer in [ground_sprites, object_sprites]:
+
+            for sprite in sorted(layer, key = lambda sprite: sprite.rect.centery):
+                # Scale the sprite image
+                scaled_image = pygame.transform.scale(
+                    sprite.image, (int(sprite.rect.width * self.scale_factor), int(sprite.rect.height * self.scale_factor))
+                )
+
+                # Scale the position
+                scaled_pos = (sprite.rect.topleft + self.offset) * self.scale_factor
+
+                self.display_surface.blit(scaled_image, scaled_pos)
+
+</groups.py>
+
+<player.py>
+import pygame, os
+from settings import *
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, group, collision_sprites):
+        super().__init__(group)
+
+        image_path = os.path.join("..","graphics", "char1.png")
+        self.image = pygame.image.load(image_path).convert_alpha() #creating the player surface
+        self.rect = self.image.get_frect(center = pos) # a rectangle for positioning
+
+
+        #movement
+        self.direction = pygame.Vector2(1,0)
+        self.speed = 250
+        self.collision_sprites =  collision_sprites
+
+    def input(self):
+        keys = pygame.key.get_pressed()
+        self.direction.x = int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT])
+        self.direction.y = int(keys[pygame.K_DOWN]) - int(keys[pygame.K_UP])
+
+    def move(self,dt):
+        self.direction = self.direction.normalize() if self.direction else self.direction
+        self.rect.x += self.direction.x * self.speed * dt
+        self.collision('horizontal')
+        self.rect.y += self.direction.y * self.speed * dt
+        self.collision('vertical')
+
+
+
+    def collision(self, direction):
+        for sprite in self.collision_sprites: #getting all obstacles
+            if sprite.rect.colliderect(self.rect):
+                if direction == 'horizontal':
+                    if self.direction.x > 0 : self.rect.right = sprite.rect.left
+                    if self.direction.x < 0 : self.rect.left = sprite.rect.right
+                if direction == 'vertical':
+                    if self.direction.y > 0 : self.rect.bottom = sprite.rect.top
+                    if self.direction.y < 0: self.rect.top = sprite.rect.bottom
+
+
+    def update(self, dt):
+        self.input()
+        self.move(dt)
+
+
+
+
+
+
+
+</player.py>
+
+<settings.py>
+import pygame
+from os.path import join
+
+screen_width = 800 #screen values
+screen_height = 800
+
+tile_size = 16
+
+
+
+# Animation frame settings (all frames in a sprite sheet)
+FRAME_WIDTH = 32
+FRAME_HEIGHT = 32
+NUM_FRAMES = 8
+SCALE_FACTOR = 2
+SCALED_FRAME_WIDTH = FRAME_WIDTH * SCALE_FACTOR
+SCALED_FRAME_HEIGHT = FRAME_HEIGHT * SCALE_FACTOR
+
+# Customization options:
+NUM_SKINTONES = 8
+NUM_CLOTHING_OPTIONS = 10
+NUM_HAIRSTYLE_OPTIONS = 15
+
+DIRECTIONS = ['forward', 'backward', 'left', 'right']
+
+#import images
+
+def import_image(*path, alpha=True, file_format='png'):
+    """
+    Loads an image from the given file path.
+    :param path: Components of the file path which will be joined.
+    :param alpha: If True, the image is converted with per-pixel alpha (transparency).
+    """
+    full_path = join(*path) + f'.{file_format}'
+    if alpha:
+        image = pygame.image.load(full_path).convert_alpha()
+    else:
+        image = pygame.image.load(full_path).convert()
+    return image
+
+#import frames
+
+def import_animation_frames(path, num_frames=NUM_FRAMES,
+                            frame_width=FRAME_WIDTH, frame_height=FRAME_HEIGHT,
+                            scale_factor=SCALE_FACTOR, file_format='png'):
+    """
+    Loads a sprite sheet and slices it into individual frames.
+    It assumes the sprite sheet contains the frames arranged horizontally.
+    After cutting each frame (which is frame_width x frame_height),
+    the frame is scaled up by the given scale_factor.
+    :param path: The file path to the sprite sheet (without extension).
+    :param num_frames: Number of frames in the sprite sheet.
+    :param frame_width: The width of one frame (unscaled).
+    :param frame_height: The height of one frame (unscaled).
+    :param scale_factor: The factor by which to scale each frame.
+    :param file_format: The file extension (default 'png').
+    :return: A list of pygame.Surface objects, one for each frame.
+    """
+    # Load the entire sprite sheet image
+    sheet = import_image(path, file_format=file_format)
+
+    frames = []
+    for i in range(num_frames):
+
+        frame_surface = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+
+
+        frame_rect = pygame.Rect(i * frame_width, 0, frame_width, frame_height)
+
+        # Blit (copy) the current frame from the sheet onto the frame_surface.
+        frame_surface.blit(sheet, (0, 0), frame_rect)
+
+        # Scale the frame to the desired size.
+        scaled_frame = pygame.transform.scale(
+            frame_surface,
+            (frame_width * scale_factor, frame_height * scale_factor)
+        )
+        frames.append(scaled_frame)
+
+    return frames
+
+#dictionaries
+def load_player_animations(base_folder):
+
+    animations = {
+        'skintones': {},
+        'clothes': {},
+        'hairstyles': {}
+    }
+
+</settings.py>
+
+<sprites.py>
+import pygame
+from settings import *
+
+
+class Sprite(pygame.sprite.Sprite):
+    def __init__(self, pos, surf, *group):
+        super().__init__(*group)
+        self.image = surf
+        self.rect = self.image.get_frect(topleft = pos)
+        self.Ground = True
+
+
+
+class CollisionSprite(pygame.sprite.Sprite):
+    def __init__(self, pos, surf, *groups, scale_factor=2):
+        super().__init__(*groups)
+        self.image = surf
+        self.rect = self.image.get_frect(topleft=pos)
+        self.display_surface = pygame.display.get_surface()
+        self.scale_factor = scale_factor
+
+
+
+
+
+
+
+</sprites.py>
+
